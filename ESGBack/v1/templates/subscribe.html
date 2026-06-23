@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8" />
+    <title>Подписка на обновления</title>
+</head>
+<body>
+    <h1>Подпишитесь на обновления сайта</h1>
+    {% if messages %}
+      {% for message in messages %}
+         <p style="color: green;">{{ message }}</p>
+      {% endfor %}
+    {% endif %}
+    <form method="post">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button type="submit">Подписаться</button>
+    </form>
+</body>
+</html>

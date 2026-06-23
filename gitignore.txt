@@ -1,0 +1,32 @@
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.log
+*.sqlite3
+
+# Virtual environments
+venv/
+.venv/
+ENV/
+env/
+
+# Django / local runtime
+db.sqlite3
+media/
+staticfiles/
+celerybeat-schedule*
+dump.rdb
+
+# Test / temporary folders
+Test/
+
+# Environment files
+.env
+.env.*
