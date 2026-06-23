@@ -24,8 +24,8 @@ staticfiles/
 celerybeat-schedule*
 dump.rdb
 
-# Test / temporary folders
-Test/
+
+
 
 # Environment files
 .env
