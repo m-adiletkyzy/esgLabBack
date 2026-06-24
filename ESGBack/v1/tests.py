@@ -1,5 +1,9 @@
+import py_compile
+from pathlib import Path
+from unittest.mock import patch
+
 from django.core import mail
-from django.test import override_settings
+from django.test import SimpleTestCase, override_settings
 from rest_framework import status
 from rest_framework.test import APITestCase
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -94,3 +98,100 @@ class SubscriptionAndAdminTests(APITestCase):
 
         comment.refresh_from_db()
         self.assertTrue(comment.is_approved)
+
+
+class SecurityRegressionTests(APITestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="security-user",
+            email="security-user@example.com",
+            password="StrongPass123",
+            is_active=True,
+            is_email_verified=True,
+        )
+        self.admin = User.objects.create_user(
+            username="security-admin",
+            email="security-admin@example.com",
+            password="StrongPass123",
+            is_active=True,
+            is_email_verified=True,
+            is_staff=True,
+        )
+
+    def authenticate(self, user):
+        token = RefreshToken.for_user(user)
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {token.access_token}")
+
+    @override_settings(DEBUG=False)
+    def test_parser_run_requires_admin_when_debug_is_disabled(self):
+        remote_addr = "203.0.113.10"
+
+        with patch("v1.views.run_all_parsers") as mocked_run:
+            anonymous_response = self.client.post(
+                "/api/v1/parsers/run/",
+                {"mode": "sync"},
+                format="json",
+                REMOTE_ADDR=remote_addr,
+            )
+            self.assertEqual(anonymous_response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+            self.authenticate(self.user)
+            user_response = self.client.post(
+                "/api/v1/parsers/run/",
+                {"mode": "sync"},
+                format="json",
+                REMOTE_ADDR=remote_addr,
+            )
+            self.assertEqual(user_response.status_code, status.HTTP_403_FORBIDDEN)
+
+            self.client.credentials()
+            self.authenticate(self.admin)
+            admin_response = self.client.post(
+                "/api/v1/parsers/run/",
+                {"mode": "sync"},
+                format="json",
+                REMOTE_ADDR=remote_addr,
+            )
+            self.assertEqual(admin_response.status_code, status.HTTP_200_OK)
+
+        mocked_run.assert_called_once()
+
+    def test_content_write_requires_admin_role(self):
+        payload = {
+            "title": "Blocked write",
+            "digest": "Regular users should not create news",
+            "site_url": "https://example.com/security",
+            "lang": "en",
+        }
+
+        self.authenticate(self.user)
+        user_response = self.client.post("/api/v1/News/", payload, format="json")
+        self.assertEqual(user_response.status_code, status.HTTP_403_FORBIDDEN)
+
+        self.client.credentials()
+        self.authenticate(self.admin)
+        admin_response = self.client.post("/api/v1/News/", payload, format="json")
+        self.assertEqual(admin_response.status_code, status.HTTP_201_CREATED)
+
+
+class SyntaxRegressionTests(SimpleTestCase):
+    def test_live_project_python_files_compile(self):
+        project_root = Path(__file__).resolve().parents[1]
+        source_roots = [
+            project_root / "ESGBack",
+            project_root / "user",
+            project_root / "v1",
+        ]
+
+        python_files = [
+            path
+            for source_root in source_roots
+            for path in source_root.rglob("*.py")
+            if "__pycache__" not in path.parts
+        ]
+
+        self.assertGreater(len(python_files), 0)
+
+        for path in python_files:
+            with self.subTest(path=path.relative_to(project_root)):
+                py_compile.compile(str(path), doraise=True)

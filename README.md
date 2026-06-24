@@ -104,6 +104,23 @@ python manage.py migrate
 python manage.py runserver
 ```
 
+## Tests
+
+Run Django checks and tests from the backend directory:
+
+```powershell
+cd ESGBack
+python manage.py check
+python manage.py test
+```
+
+The test suite includes:
+
+- auth flow tests for registration, email activation, login, admin login, and password reset
+- subscription and admin moderation tests
+- security regression tests that verify parser execution and content writes require admin access
+- syntax regression tests that compile the live `ESGBack`, `v1`, and `user` Python source trees
+
 ## Filtering and Pagination
 
 Global pagination is enabled with DRF `LimitOffsetPagination`.
