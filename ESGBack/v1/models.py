@@ -51,6 +51,7 @@ class Subscriber(models.Model):
     is_active = models.BooleanField(default=False)
     confirm_token = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
     confirmed_at = models.DateTimeField(null=True, blank=True)
+    genre_preferences = models.JSONField(null=True, blank=True, default=None)
     created_at = models.DateTimeField(auto_now_add=True)
 
 class Comment(models.Model):

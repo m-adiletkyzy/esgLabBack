@@ -1,5 +1,7 @@
 from rest_framework import serializers
 
+from v1.parsers.NlpMethods import ESG_SUBGENRES, get_esg_subgenres
+
 from .models import Comment, Course, Event, News, Project, Subscriber
 
 
@@ -37,8 +39,35 @@ class EventSerializer(serializers.ModelSerializer):
 class SubscriberSerializer(serializers.ModelSerializer):
     class Meta:
         model = Subscriber
-        fields = ["id", "email", "is_active", "confirm_token", "confirmed_at", "created_at"]
+        fields = [
+            "id",
+            "email",
+            "is_active",
+            "genre_preferences",
+            "confirm_token",
+            "confirmed_at",
+            "created_at",
+        ]
         read_only_fields = ["id", "is_active", "confirm_token", "confirmed_at", "created_at"]
+
+
+class SubscriptionPreferencesSerializer(serializers.Serializer):
+    genre_preferences = serializers.ListField(
+        child=serializers.ChoiceField(choices=ESG_SUBGENRES),
+        allow_empty=True,
+    )
+    available_genres = serializers.ListField(read_only=True)
+
+    def validate_genre_preferences(self, value):
+        return list(dict.fromkeys(value))
+
+
+class SubscriptionPreferencesReadSerializer(serializers.Serializer):
+    genre_preferences = serializers.ListField(
+        child=serializers.ChoiceField(choices=ESG_SUBGENRES),
+    )
+    available_genres = serializers.ListField()
+    is_active = serializers.BooleanField()
 
 
 class AdminSubscriberSerializer(serializers.ModelSerializer):
@@ -52,6 +81,7 @@ class AdminSubscriberSerializer(serializers.ModelSerializer):
             "user_email",
             "email",
             "is_active",
+            "genre_preferences",
             "confirm_token",
             "confirmed_at",
             "created_at",

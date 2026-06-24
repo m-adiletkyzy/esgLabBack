@@ -17,6 +17,7 @@ from .permissions import IsAdminUserRole, IsOwnerOrAdminOrReadOnly
 from .serializers import *
 from .services import send_subscription_confirmation_email
 from .tasks import repeat_order_make, run_all_parsers
+from v1.parsers.NlpMethods import default_genre_preferences, get_esg_subgenres
 
 
 news_list_schema = extend_schema(
@@ -189,8 +190,55 @@ class SubscribeConfirmView(APIView):
 
         subscriber.is_active = True
         subscriber.confirmed_at = timezone.now()
-        subscriber.save(update_fields=["is_active", "confirmed_at"])
+        if subscriber.genre_preferences is None:
+            subscriber.genre_preferences = default_genre_preferences()
+        subscriber.save(update_fields=["is_active", "confirmed_at", "genre_preferences"])
         return Response({"detail": "Subscription confirmed."}, status=200)
+
+
+class SubscriptionPreferencesView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def _get_subscriber(self, request):
+        return Subscriber.objects.filter(email=request.user.email).first()
+
+    @extend_schema(
+        summary="Get subscription genre preferences",
+        responses={200: SubscriptionPreferencesReadSerializer},
+    )
+    def get(self, request):
+        subscriber = self._get_subscriber(request)
+        if subscriber is None:
+            return Response({"detail": "Subscription not found."}, status=404)
+
+        payload = {
+            "genre_preferences": subscriber.genre_preferences or default_genre_preferences(),
+            "available_genres": get_esg_subgenres(),
+            "is_active": subscriber.is_active,
+        }
+        return Response(SubscriptionPreferencesReadSerializer(payload).data)
+
+    @extend_schema(
+        summary="Update subscription genre preferences",
+        request=SubscriptionPreferencesSerializer,
+        responses={200: SubscriptionPreferencesReadSerializer},
+    )
+    def patch(self, request):
+        subscriber = self._get_subscriber(request)
+        if subscriber is None:
+            return Response({"detail": "Subscription not found."}, status=404)
+
+        serializer = SubscriptionPreferencesSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        subscriber.genre_preferences = serializer.validated_data["genre_preferences"]
+        subscriber.save(update_fields=["genre_preferences"])
+
+        payload = {
+            "genre_preferences": subscriber.genre_preferences,
+            "available_genres": get_esg_subgenres(),
+            "is_active": subscriber.is_active,
+        }
+        return Response(SubscriptionPreferencesReadSerializer(payload).data)
 
 
 class RunParsersView(APIView):
